@@ -1,0 +1,20 @@
+<svg width="620" height="140" viewBox="0 0 620 140" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">NMK Global Incorporated</title>
+  <desc id="desc">Compact NMK Global Incorporated logo with layered rounded diamond mark.</desc>
+  <rect width="620" height="140" fill="white"/>
+  <g transform="translate(24 16)">
+    <rect x="0" y="56" width="54" height="54" rx="12" transform="rotate(-45 0 56)" fill="#FFF061" fill-opacity="0.94"/>
+    <rect x="38" y="50" width="66" height="66" rx="15" transform="rotate(-45 38 50)" fill="#61D46F" fill-opacity="0.9"/>
+    <rect x="77" y="45" width="82" height="82" rx="16" transform="rotate(-45 77 45)" fill="#22AEDD" fill-opacity="0.96"/>
+    <path d="M95 24L150 79C156 85 156 95 150 101L95 156C89 162 79 162 73 156L18 101C12 95 12 85 18 79L73 24C79 18 89 18 95 24Z" fill="#26ACD8" fill-opacity="0.96" transform="translate(39 -24)"/>
+    <path d="M77 70L107 40C113 34 123 34 129 40L159 70L129 100C123 106 113 106 107 100L77 70Z" fill="#08A6BD" fill-opacity="0.58"/>
+  </g>
+  <g transform="translate(184 32)">
+    <text x="0" y="45" font-family="Georgia, 'Times New Roman', serif" font-size="58" fill="#08A4CE" letter-spacing="0.7">NMK GLOBAL</text>
+    <path d="M1 58H230" stroke="#08A4CE" stroke-width="2.2"/>
+    <path d="M1 66H230" stroke="#08A4CE" stroke-width="2.2"/>
+    <path d="M1 74H230" stroke="#08A4CE" stroke-width="2.2"/>
+    <path d="M1 82H230" stroke="#08A4CE" stroke-width="2.2"/>
+    <text x="239" y="82" font-family="Georgia, 'Times New Roman', serif" font-size="31" fill="#666666">incorporated</text>
+  </g>
+</svg>
