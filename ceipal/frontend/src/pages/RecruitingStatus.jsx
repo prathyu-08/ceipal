@@ -101,8 +101,21 @@ export default function RecruitingStatus() {
   }, [])
 
   useEffect(() => {
-    loadStatus({ force: true, quiet: hasInitialCache })
+    const preloadDone = (() => {
+      try {
+        return localStorage.getItem('dashboard-preload-done') === '1'
+      } catch {
+        return false
+      }
+    })()
+
+    // If preload already fetched `/dashboard/status`, avoid forcing a 2nd request.
+    loadStatus({
+      force: !preloadDone,
+      quiet: hasInitialCache || preloadDone,
+    })
   }, [hasInitialCache, loadStatus])
+
 
   return (
     <main className="relative min-h-[calc(100vh-74px)] overflow-hidden bg-[#030914]">

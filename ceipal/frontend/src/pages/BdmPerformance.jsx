@@ -37,10 +37,24 @@ export default function BdmPerformance() {
   }, [period])
 
   useEffect(() => {
-    loadRows({ force: true, quiet: Boolean(getCachedBdmPerformance(period)) })
+    const preloadDone = (() => {
+      try {
+        return localStorage.getItem('dashboard-preload-done') === '1'
+      } catch {
+        return false
+      }
+    })()
+
+    // If preload already fetched `/dashboard/bdm-performance`, avoid forcing a 2nd request.
+    loadRows({
+      force: !preloadDone,
+      quiet: preloadDone || Boolean(getCachedBdmPerformance(period)),
+    })
+
     const timer = setInterval(() => loadRows({ quiet: true }), REFRESH_MS)
     return () => clearInterval(timer)
   }, [loadRows, period])
+
 
   return (
     <main className="relative min-h-[calc(100vh-78px)] overflow-hidden bg-[#030914]">
