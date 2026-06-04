@@ -1,0 +1,15 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Cache
+.cache/
+*.json
+
+# Frontend
+node_modules/
+.vite/
