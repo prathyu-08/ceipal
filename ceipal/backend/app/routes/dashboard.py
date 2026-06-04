@@ -13,6 +13,7 @@ Notes
 
 from __future__ import annotations
 
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from threading import RLock
@@ -24,6 +25,7 @@ import time
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from app.core.response_cache import cached_response
 from app.config.settings import get_settings
 from app.services.ceipal_service import (
     get_jobs,
@@ -32,11 +34,12 @@ from app.services.ceipal_service import (
     get_applicants_total_count,
     get_submissions_total_count,
     get_job_details,
-    get_priority,
+    get_priority_cached,
     flush_job_detail_cache,
     build_user_map,
     get_jobposts_screen_rows,
 )
+
 
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -430,6 +433,13 @@ def _get_high_priority_cache(cache_key: str) -> Optional[list[RequirementItem]]:
 
 @router.get("/stats", response_model=DashboardStats)
 async def get_dashboard_stats():
+    async def build():
+        return await asyncio.to_thread(_build_dashboard_stats)
+
+    return await cached_response("dashboard:stats", 60, build)
+
+
+def _build_dashboard_stats() -> DashboardStats:
     try:
         with ThreadPoolExecutor(max_workers=4) as executor:
             jobs_future = executor.submit(get_jobs, max_pages=10)
@@ -455,6 +465,18 @@ async def get_dashboard_stats():
 @router.get("/status")
 async def get_recruiting_status():
     today = datetime.now().date()
+
+    async def build():
+        return await asyncio.to_thread(_build_recruiting_status, today)
+
+    return await cached_response(
+        f"dashboard:status:{today.isoformat()}",
+        settings.status_cache_ttl_seconds,
+        build,
+    )
+
+
+def _build_recruiting_status(today: datetime.date) -> dict:
     try:
         with ThreadPoolExecutor(max_workers=3) as executor:
             jobs_future = executor.submit(get_jobposts_screen_rows, 0)
@@ -530,6 +552,18 @@ async def get_recruiting_status():
 @router.get("/today-submissions", response_model=list[TodaySubmissionItem])
 async def get_today_submissions():
     today = datetime.now().date()
+
+    async def build():
+        return await asyncio.to_thread(_build_today_submissions, today)
+
+    return await cached_response(
+        f"dashboard:today-submissions:{today.isoformat()}",
+        settings.today_submissions_cache_ttl_seconds,
+        build,
+    )
+
+
+def _build_today_submissions(today: datetime.date) -> list[TodaySubmissionItem]:
     try:
         with ThreadPoolExecutor(max_workers=2) as executor:
             subs_future = executor.submit(get_all_submissions, max_pages=0)
@@ -614,6 +648,19 @@ async def get_today_submissions():
 
 @router.get("/bdm-performance", response_model=list[BdmKpiItem])
 async def get_bdm_performance(period: str = Query("today", pattern="^(today|yesterday)$")):
+    cache_key = f"dashboard:bdm-performance:{period}:{datetime.now().date().isoformat()}"
+
+    async def build():
+        return await asyncio.to_thread(_build_bdm_performance, period)
+
+    return await cached_response(
+        cache_key,
+        settings.bdm_performance_cache_ttl_seconds,
+        build,
+    )
+
+
+def _build_bdm_performance(period: str) -> list[BdmKpiItem]:
     target_date = datetime.now().date()
     if period == "yesterday":
         target_date = target_date - timedelta(days=1)
@@ -778,6 +825,29 @@ async def get_high_priority_requirements(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
 ):
+    p_from = _parse_date_yyyy_mm_dd(date_from)
+    p_to = _parse_date_yyyy_mm_dd(date_to)
+
+    if not p_from and not p_to:
+        p_from = datetime.now().date() - timedelta(days=1)
+        p_to = p_from
+
+    cache_key = f"dashboard:high-priority:{p_from.isoformat() if p_from else ''}:{p_to.isoformat() if p_to else ''}"
+
+    async def build():
+        return await asyncio.to_thread(
+            _build_high_priority_requirements,
+            date_from,
+            date_to,
+        )
+
+    return await cached_response(cache_key, _HIGH_PRIORITY_TTL, build)
+
+
+def _build_high_priority_requirements(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> list[RequirementItem]:
     p_from = _parse_date_yyyy_mm_dd(date_from)
     p_to = _parse_date_yyyy_mm_dd(date_to)
 
@@ -1117,7 +1187,9 @@ async def get_high_priority_requirements(
 
         title = _clean_title(job.get("public_job_title") or job.get("position_title") or "Untitled")
 
-        priority = get_priority(job_id)
+        # IMPORTANT: use cache-only priority to avoid per-job network calls during rendering.
+        priority = get_priority_cached(job_id)
+
         created_at = _parse_record_datetime(job, ("created", "created_on", "job_created"))
 
 
@@ -1158,16 +1230,44 @@ async def get_high_priority_requirements(
     return results
 
 
-@router.get("/bdm-wise", response_model=list[RequirementItem])
-async def get_bdm_wise_requirements(
-    date_from: Optional[str] = Query(None),
-    date_to: Optional[str] = Query(None),
-):
-    return await get_high_priority_requirements(date_from=date_from, date_to=date_to)
+# NOTE:
+# /dashboard/bdm-wise has been intentionally removed.
+# Frontend currently loads /dashboard/high-priority for both dashboard and priority screen.
+# Keeping an extra route duplicates logic and can confuse API consumers.
+
+
+
+async def warm_dashboard_caches() -> None:
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+    warmers = [
+        get_recruiting_status(),
+        get_bdm_performance("today"),
+        get_bdm_performance("yesterday"),
+        get_high_priority_requirements(
+            date_from=today.isoformat(),
+            date_to=today.isoformat(),
+        ),
+        get_high_priority_requirements(
+            date_from=yesterday.isoformat(),
+            date_to=yesterday.isoformat(),
+        ),
+    ]
+    results = await asyncio.gather(*warmers, return_exceptions=True)
+    for result in results:
+        if isinstance(result, Exception):
+            logger.warning("Dashboard cache warm failed: %s", result)
 
 
 @router.get("/raw-data")
 async def get_raw_data():
+    if settings.app_env.lower() != "development":
+        raise HTTPException(status_code=404, detail="Not found")
+
+    return await asyncio.to_thread(_build_raw_data)
+
+
+def _build_raw_data() -> dict:
     try:
         jobs, jt = get_jobs()
         users = get_users()

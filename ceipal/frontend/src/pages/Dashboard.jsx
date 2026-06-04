@@ -150,11 +150,14 @@ function MetricCard({ label, value }) {
 }
 
 export default function Dashboard({ onComplete }) {
+  // Fetch once and reuse the same requirements dataset for the entire UI.
+  // This prevents BDM-wise and High-priority from re-fetching the same range.
   const [requirements, setRequirements] =
     useState([])
 
   const [reqLoading, setReqLoading] =
     useState(true)
+
 
   const [reqError, setReqError] =
     useState(null)
