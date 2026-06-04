@@ -20,7 +20,13 @@ class Settings(BaseSettings):
     # App settings
     app_env: str = "development"
     app_port: int = 8000
+    cors_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+    redis_url: str = ""
+    request_dedupe_ttl_seconds: int = 30
     high_priority_cache_ttl_seconds: int = 15 * 60
+    status_cache_ttl_seconds: int = 2 * 60
+    bdm_performance_cache_ttl_seconds: int = 5 * 60
+    today_submissions_cache_ttl_seconds: int = 60
     submissions_cache_ttl_seconds: int = 60
     jobs_date_cache_ttl_seconds: int = 2 * 60
     jobposts_screen_cache_ttl_seconds: int = 5 * 60

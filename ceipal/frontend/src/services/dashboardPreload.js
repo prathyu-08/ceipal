@@ -21,11 +21,15 @@ export async function preloadDashboardData() {
   ])
 
   await Promise.allSettled([
-    loadHighPriorityRequirements({ ...range, force: true, route: 'bdm-wise' }),
-  ])
-  await Promise.allSettled([
     loadHighPriorityRequirements({ ...range, force: true, route: 'high-priority' }),
   ])
 
+  try {
+    localStorage.setItem('dashboard-preload-done', '1')
+  } catch {
+    // ignore (private mode / quota)
+  }
+
   return baseLoads
 }
+

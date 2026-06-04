@@ -1,7 +1,4 @@
-import {
-  fetchBdmWiseRequirements,
-  fetchHighPriorityRequirements,
-} from './dashboardApi'
+import { fetchHighPriorityRequirements } from './dashboardApi'
 import {
   readHighPriorityCache,
   writeHighPriorityCache,
@@ -15,12 +12,12 @@ function getCacheKey(dateFrom, dateTo) {
 }
 
 function getLoadKey(route, dateFrom, dateTo) {
-  return `${route || 'high-priority'}:${getCacheKey(dateFrom, dateTo)}`
+  return getCacheKey(dateFrom, dateTo)
 }
 
 function fetchRequirements(route, dateFrom, dateTo) {
   if (route === 'bdm-wise') {
-    return fetchBdmWiseRequirements({ dateFrom, dateTo })
+    return fetchHighPriorityRequirements({ dateFrom, dateTo })
   }
 
   return fetchHighPriorityRequirements({ dateFrom, dateTo })

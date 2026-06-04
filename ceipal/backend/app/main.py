@@ -10,19 +10,18 @@ FastAPI application entry point.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 import logging
 
 from app.config.settings import get_settings
+from app.core.logging import RequestLogMiddleware, configure_json_logging
 from app.routes import dashboard
 from app.services.ceipal_service import start_priority_cache_loader
 
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
+configure_json_logging(logging.INFO)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
@@ -41,21 +40,21 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+app.add_middleware(RequestLogMiddleware)
+
+# Optional: set response to include request_id for easier client correlation
+# (middleware already attaches x-request-id)
+
 
 # ---------------------------------------------------------------------------
 # CORS – allow React Vite dev server and any production origin
 # ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite default
-        "http://localhost:3000",   # CRA fallback
-        "http://127.0.0.1:5173",
-        "*",                        # Remove in production; add specific domain
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["content-type", "authorization", "x-request-id"],
 )
 
 # ---------------------------------------------------------------------------
@@ -81,3 +80,4 @@ async def health():
 async def startup_event():
     """Start background priority cache loader on server boot."""
     start_priority_cache_loader()
+    asyncio.create_task(dashboard.warm_dashboard_caches())
